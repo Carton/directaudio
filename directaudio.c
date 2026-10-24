@@ -40,6 +40,10 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#ifdef __aarch64__
+#include <arm_neon.h>
+#endif
+
 #ifdef DA_RELAY
 /* ---- relay build (glibc, the Linux Steam client) ------------------------------
  * The game process is a glibc process inside a proot'd rootfs and cannot load
@@ -585,12 +589,39 @@ static void mix_voice(struct directaudio_stream *v, float *out, int32_t numFrame
     if (v->aa_rate == MIX_OUT_RATE)
     {
         UINT32 n = min((UINT32)numFrames, v->held_frames), f;
-        for (f = 0; f < n; f++)
+        /* 2026-10-24: keep the common float/stereo stream out of the per-frame
+         * format dispatcher. Split at the ring boundary so modulo and format
+         * checks happen per span, while preserving one rounded add per sample. */
+        if (v->is_float && v->fmt->wBitsPerSample == 32 &&
+            v->fmt->nChannels == 2 && v->fmt->nBlockAlign == 2 * sizeof(float) &&
+            !v->vols_active)
         {
-            float L, R;
-            voice_frame_stereo(v, f, &L, &R);
-            out[2*f]     += L;
-            out[2*f + 1] += R;
+            UINT32 done = 0, pos = v->lcl_offs_frames;
+            while (done < n)
+            {
+                UINT32 count = min(n - done, v->bufsize_frames - pos), i = 0;
+                const float *src = (const float *)v->local_buffer + 2 * pos;
+                float *dst = out + 2 * done;
+#ifdef __aarch64__
+                /* Source first matches the existing ARM64 helper's NaN payload
+                 * selection when both operands are NaNs. */
+                for (; i + 4 <= count * 2; i += 4)
+                    vst1q_f32(dst + i, vaddq_f32(vld1q_f32(src + i), vld1q_f32(dst + i)));
+#endif
+                for (; i < count * 2; i++) dst[i] = src[i] + dst[i];
+                done += count;
+                pos = 0;
+            }
+        }
+        else
+        {
+            for (f = 0; f < n; f++)
+            {
+                float L, R;
+                voice_frame_stereo(v, f, &L, &R);
+                out[2*f]     += L;
+                out[2*f + 1] += R;
+            }
         }
         v->lcl_offs_frames = (v->lcl_offs_frames + n) % v->bufsize_frames;
         v->held_frames -= n;
