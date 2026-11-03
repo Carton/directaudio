@@ -33,9 +33,9 @@ Wine 11 mmdevapi ABI. The Wine source/build must provide generated headers and
 `dlls/mmdevapi/unixlib.h` for that ABI. The two existing PE `.drv` files are not
 rebuilt by this script. Rebuilding the complete PE/unixlib matrix still uses the
 upstream Wine integration and CI instructions; that matrix has not been validated
-for this local fork. The CI workflow builds the Wine 11 classic ARM64 unixlib with upstream NDK 27d,
+for this local fork. The CI workflow builds the Wine 11 classic ARM64 unixlib with NDK 29 and Android API 28,
 then replaces its `libaaudio.so` dependency with `libwaudio.so` and verifies
-the resulting ELF. It uploads the unixlib only; PE files and the bridge must
+the resulting ELF, including 16 KB load-segment alignment. It uploads the unixlib only; PE files and the bridge must
 be supplied by the matching runtime. The Wine branch is not pinned, so
 verify the artifact against the target runtime before using it.
 

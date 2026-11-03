@@ -58,15 +58,18 @@ jobs:
         id: cache-ndk
         uses: actions/cache@v4
         with:
-          path: ~/Android/Sdk/ndk/27.3.13750724
-          key: android-ndk-r27d
+          path: ~/Android/Sdk/ndk/29.0.14206865
+          key: android-ndk-r29
       - name: Set up Android NDK
         if: steps.cache-ndk.outputs.cache-hit != 'true'
         run: |
           mkdir -p $HOME/Android/Sdk/ndk && cd $HOME/Android/Sdk/ndk
-          wget -q https://dl.google.com/android/repository/android-ndk-r27d-linux.zip
-          unzip -q android-ndk-r27d-linux.zip
-          mv android-ndk-r27d 27.3.13750724
+          wget -q https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+          unzip -q android-ndk-r29-linux.zip
+          mv android-ndk-r29 29.0.14206865
+
+      - name: Select Android NDK
+        run: echo "ANDROID_NDK_BIN=$HOME/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_ENV"
 
       - name: Cache LLVM MinGW toolchain
         id: cache-llvm-mingw
@@ -117,7 +120,8 @@ jobs:
           # `source` so the arm64ec toolchain env the script exports (CC/CFLAGS/
           # CROSSCFLAGS/PATH/DLLTOOL/…) persists into this shell for the targeted
           # make below. The script also applies the bionic + GE patches + configures.
-          source build-scripts/build-step-arm64ec.sh  --configure
+          source build-scripts/build-step-arm64ec.sh --configure
+          test "$TARGET" = aarch64-linux-android28
           make -j"$(nproc)" dlls/winedirectaudio.drv/winedirectaudio.so
 
       - name: Prepare DirectAudio unixlib
@@ -125,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           so=wine/dlls/winedirectaudio.drv/winedirectaudio.so
-          readelf="$HOME/Android/Sdk/ndk/27.3.13750724/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          readelf="$HOME/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
           test -f "$so"
           "$readelf" -d "$so" | grep -F 'Shared library: [libaaudio.so]'
           python3 - "$so" <<'PYCODE'
@@ -140,6 +144,8 @@ jobs:
           "$readelf" -d "$so" | grep -F 'Shared library: [libwaudio.so]'
           if "$readelf" -d "$so" | grep -F 'Shared library: [libaaudio.so]'; then exit 1; fi
           "$readelf" --dyn-syms "$so" | grep -F '__wine_unix_call'
+          "$readelf" -lW "$so" | awk '$1 == "LOAD" { found = 1; if ($NF != "0x4000") exit 1 } END { if (!found) exit 1 }'
+          "$readelf" -n "$so" | grep -F '1c 00 00 00 72 32 39'
           mkdir -p out
           cp "$so" out/winedirectaudio.so
           sha256sum out/winedirectaudio.so > out/SHA256SUMS
@@ -147,7 +153,7 @@ jobs:
       - name: Upload Wine 11 classic ARM64 unixlib
         uses: actions/upload-artifact@v4
         with:
-          name: directaudio-wine11-arm64-api28
+          name: directaudio-wine11-arm64-api28-16k
           path: out/
           if-no-files-found: error
           retention-days: 30
