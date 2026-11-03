@@ -35,7 +35,7 @@ jobs:
         run: |
           cp driver/directaudio.c driver/Makefile.in driver/da_relay_proto.h driver/da_aaudio_compat.h wine/dlls/winedirectaudio.drv/
           grep -q 'ndk/27.3.13750724/toolchains' wine/build-scripts/build-step-arm64ec.sh
-          sed -i 's|ndk/27.3.13750724/toolchains|ndk/29.0.14206865/toolchains|g' wine/build-scripts/build-step-arm64ec.sh
+          sed -i 's|ndk/27.3.13750724/toolchains|ndk/29.0.14206865/toolchains|g; s/--with-xshm/--without-xshm/; s/--with-xrandr/--without-xrandr/; s/--with-xrender/--without-xrender/' wine/build-scripts/build-step-arm64ec.sh
 
       - name: Set up build environment
         # libwayland-bin: wayland-scanner, which the trees that build winewayland.drv
