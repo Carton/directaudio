@@ -34,6 +34,8 @@ jobs:
       - name: Overlay driver source
         run: |
           cp driver/directaudio.c driver/Makefile.in driver/da_relay_proto.h driver/da_aaudio_compat.h wine/dlls/winedirectaudio.drv/
+          grep -q 'ndk/27.3.13750724/toolchains' wine/build-scripts/build-step-arm64ec.sh
+          sed -i 's|ndk/27.3.13750724/toolchains|ndk/29.0.14206865/toolchains|g' wine/build-scripts/build-step-arm64ec.sh
 
       - name: Set up build environment
         # libwayland-bin: wayland-scanner, which the trees that build winewayland.drv
@@ -67,9 +69,6 @@ jobs:
           wget -q https://dl.google.com/android/repository/android-ndk-r29-linux.zip
           unzip -q android-ndk-r29-linux.zip
           mv android-ndk-r29 29.0.14206865
-
-      - name: Select Android NDK
-        run: echo "ANDROID_NDK_BIN=$HOME/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin" >> "$GITHUB_ENV"
 
       - name: Cache LLVM MinGW toolchain
         id: cache-llvm-mingw
